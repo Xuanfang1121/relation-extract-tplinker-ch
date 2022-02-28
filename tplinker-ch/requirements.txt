@@ -1,0 +1,9 @@
+onnxruntime==1.7.0
+numpy==1.19.2
+transformers==4.6.0
+requests==2.26.0
+tqdm==4.62.0
+torch==1.8.1+cpu
+Flask==2.0.1
+glove==1.0.2
+PyYAML==6.0

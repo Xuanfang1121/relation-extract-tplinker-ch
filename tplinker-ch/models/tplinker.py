@@ -1,12 +1,10 @@
-import re
-from tqdm import tqdm
-import copy
+# -*- coding: utf-8 -*-
+import math
+
 import torch
 import torch.nn as nn
-import json
-from torch.nn.parameter import Parameter
+from tqdm import tqdm
 from common.components import HandshakingKernel
-import math
 
 
 class HandshakingTaggingScheme(object):
@@ -58,15 +56,19 @@ class HandshakingTaggingScheme(object):
             ent_matrix_spots.append((subj_tok_span[0], subj_tok_span[1] - 1, self.tag2id_ent["ENT-H2T"]))
             ent_matrix_spots.append((obj_tok_span[0], obj_tok_span[1] - 1, self.tag2id_ent["ENT-H2T"]))
 
-            if  subj_tok_span[0] <= obj_tok_span[0]:
-                head_rel_matrix_spots.append((self.rel2id[rel["predicate"]], subj_tok_span[0], obj_tok_span[0], self.tag2id_head_rel["REL-SH2OH"]))
+            if subj_tok_span[0] <= obj_tok_span[0]:
+                head_rel_matrix_spots.append((self.rel2id[rel["predicate"]], subj_tok_span[0],
+                                              obj_tok_span[0], self.tag2id_head_rel["REL-SH2OH"]))
             else:
-                head_rel_matrix_spots.append((self.rel2id[rel["predicate"]], obj_tok_span[0], subj_tok_span[0], self.tag2id_head_rel["REL-OH2SH"]))
+                head_rel_matrix_spots.append((self.rel2id[rel["predicate"]], obj_tok_span[0],
+                                              subj_tok_span[0], self.tag2id_head_rel["REL-OH2SH"]))
                 
             if subj_tok_span[1] <= obj_tok_span[1]:
-                tail_rel_matrix_spots.append((self.rel2id[rel["predicate"]], subj_tok_span[1] - 1, obj_tok_span[1] - 1, self.tag2id_tail_rel["REL-ST2OT"]))
+                tail_rel_matrix_spots.append((self.rel2id[rel["predicate"]], subj_tok_span[1] - 1,
+                                              obj_tok_span[1] - 1, self.tag2id_tail_rel["REL-ST2OT"]))
             else:
-                tail_rel_matrix_spots.append((self.rel2id[rel["predicate"]], obj_tok_span[1] - 1, subj_tok_span[1] - 1, self.tag2id_tail_rel["REL-OT2ST"]))
+                tail_rel_matrix_spots.append((self.rel2id[rel["predicate"]], obj_tok_span[1] - 1,
+                                              subj_tok_span[1] - 1, self.tag2id_tail_rel["REL-OT2ST"]))
                 
         return ent_matrix_spots, head_rel_matrix_spots, tail_rel_matrix_spots
 
@@ -97,7 +99,6 @@ class HandshakingTaggingScheme(object):
             shaking_ind = self.matrix_ind2shaking_ind[sp[1]][sp[2]]
             shaking_seq_tag[sp[0]][shaking_ind] = sp[3]
         return shaking_seq_tag
-
 
     def sharing_spots2shaking_tag4batch(self, batch_spots):
         '''
@@ -166,17 +167,16 @@ class HandshakingTaggingScheme(object):
             spots.append(spot)
         return spots
 
-
     def decode_rel_fr_shaking_tag(self,
-                      text, 
-                      ent_shaking_tag, 
-                      head_rel_shaking_tag, 
-                      tail_rel_shaking_tag, 
-                      tok2char_span, 
-                      tok_offset = 0, char_offset = 0):
+                                  text,
+                                  ent_shaking_tag,
+                                  head_rel_shaking_tag,
+                                  tail_rel_shaking_tag,
+                                  tok2char_span,
+                                  tok_offset=0, char_offset=0):
         '''
-        ent shaking tag: (shaking_seq_len, )
-        head rel and tail rel shaking_tag: size = (rel_size, shaking_seq_len, )
+            ent shaking tag: (shaking_seq_len, )
+            head rel and tail rel shaking_tag: size = (rel_size, shaking_seq_len, )
         '''
         rel_list = []
         
@@ -226,16 +226,18 @@ class HandshakingTaggingScheme(object):
             elif tag_id == self.tag2id_head_rel["REL-OH2SH"]:
                 subj_head_key, obj_head_key = sp[2], sp[1]
                 
-            if subj_head_key not in head_ind2entities or obj_head_key not in head_ind2entities:
+            if subj_head_key not in head_ind2entities or \
+                    obj_head_key not in head_ind2entities:
                 # no entity start with subj_head_key and obj_head_key
                 continue
-            subj_list = head_ind2entities[subj_head_key] # all entities start with this subject head
-            obj_list = head_ind2entities[obj_head_key] # all entities start with this object head
+            subj_list = head_ind2entities[subj_head_key]   # all entities start with this subject head
+            obj_list = head_ind2entities[obj_head_key]   # all entities start with this object head
 
             # go over all subj-obj pair to check whether the relation exists
             for subj in subj_list:
                 for obj in obj_list:
-                    tail_rel_memory = "{}-{}-{}".format(rel_id, subj["tok_span"][1] - 1, obj["tok_span"][1] - 1)
+                    tail_rel_memory = "{}-{}-{}".format(rel_id, subj["tok_span"][1] - 1,
+                                                        obj["tok_span"][1] - 1)
                     if tail_rel_memory not in tail_rel_memory_set:
                         # no such relation 
                         continue
@@ -243,13 +245,18 @@ class HandshakingTaggingScheme(object):
                     rel_list.append({
                         "subject": subj["text"],
                         "object": obj["text"],
-                        "subj_tok_span": [subj["tok_span"][0] + tok_offset, subj["tok_span"][1] + tok_offset],
-                        "obj_tok_span": [obj["tok_span"][0] + tok_offset, obj["tok_span"][1] + tok_offset],
-                        "subj_char_span": [subj["char_span"][0] + char_offset, subj["char_span"][1] + char_offset],
-                        "obj_char_span": [obj["char_span"][0] + char_offset, obj["char_span"][1] + char_offset],
+                        "subj_tok_span": [subj["tok_span"][0] + tok_offset,
+                                          subj["tok_span"][1] + tok_offset],
+                        "obj_tok_span": [obj["tok_span"][0] + tok_offset,
+                                         obj["tok_span"][1] + tok_offset],
+                        "subj_char_span": [subj["char_span"][0] + char_offset,
+                                           subj["char_span"][1] + char_offset],
+                        "obj_char_span": [obj["char_span"][0] + char_offset,
+                                          obj["char_span"][1] + char_offset],
                         "predicate": self.id2rel[rel_id],
                     })
         return rel_list
+
 
 class DataMaker4Bert():
     def __init__(self, tokenizer, handshaking_tagger):
@@ -315,8 +322,8 @@ class DataMaker4Bert():
                 tail_rel_spots_list.append(tail_rel_matrix_spots)
 
         # @specific: indexed by bert tokenizer
-        batch_input_ids = torch.stack(input_ids_list, dim = 0)
-        batch_attention_mask = torch.stack(attention_mask_list, dim = 0)
+        batch_input_ids = torch.stack(input_ids_list, dim=0)
+        batch_attention_mask = torch.stack(attention_mask_list, dim=0)
         batch_token_type_ids = torch.stack(token_type_ids_list, dim = 0)
         
         batch_ent_shaking_tag, batch_head_rel_shaking_tag, batch_tail_rel_shaking_tag = None, None, None
@@ -329,65 +336,7 @@ class DataMaker4Bert():
               batch_input_ids, batch_attention_mask, batch_token_type_ids, tok2char_span_list, \
                 batch_ent_shaking_tag, batch_head_rel_shaking_tag, batch_tail_rel_shaking_tag
 
-class DataMaker4BiLSTM():
-    def __init__(self, text2indices, get_tok2char_span_map, handshaking_tagger):
-        self.text2indices = text2indices
-        self.handshaking_tagger = handshaking_tagger
-        self.get_tok2char_span_map = get_tok2char_span_map
-        
-    def get_indexed_data(self, data, max_seq_len, data_type = "train"):
-        indexed_samples = []
-        for ind, sample in tqdm(enumerate(data), desc = "Generate indexed train or valid data"):
-            text = sample["text"]
 
-            # tagging
-            spots_tuple = None
-            if data_type != "test":
-                spots_tuple = self.handshaking_tagger.get_spots(sample)
-            tok2char_span = self.get_tok2char_span_map(text)
-            tok2char_span.extend([(-1, -1)] * (max_seq_len - len(tok2char_span)))
-            input_ids = self.text2indices(text, max_seq_len)
-
-            sample_tp = (sample,
-                     input_ids,
-                     tok2char_span,
-                     spots_tuple,
-                    )
-            indexed_samples.append(sample_tp)       
-        return indexed_samples
-    
-    def generate_batch(self, batch_data, data_type = "train"):
-        sample_list = []
-        input_ids_list = []
-        tok2char_span_list = []
-        
-        ent_spots_list = []
-        head_rel_spots_list = []
-        tail_rel_spots_list = []
-
-        for tp in batch_data:
-            sample_list.append(tp[0])
-            input_ids_list.append(tp[1])    
-            tok2char_span_list.append(tp[2])
-            
-            if data_type != "test":
-                ent_matrix_spots, head_rel_matrix_spots, tail_rel_matrix_spots = tp[3]
-                ent_spots_list.append(ent_matrix_spots)
-                head_rel_spots_list.append(head_rel_matrix_spots)
-                tail_rel_spots_list.append(tail_rel_matrix_spots)
-
-        batch_input_ids = torch.stack(input_ids_list, dim = 0)
-        
-        batch_ent_shaking_tag, batch_head_rel_shaking_tag, batch_tail_rel_shaking_tag = None, None, None
-        if data_type != "test":
-            batch_ent_shaking_tag = self.handshaking_tagger.sharing_spots2shaking_tag4batch(ent_spots_list)
-            batch_head_rel_shaking_tag = self.handshaking_tagger.spots2shaking_tag4batch(head_rel_spots_list)
-            batch_tail_rel_shaking_tag = self.handshaking_tagger.spots2shaking_tag4batch(tail_rel_spots_list)
-
-        return sample_list, \
-                batch_input_ids, tok2char_span_list, \
-                batch_ent_shaking_tag, batch_head_rel_shaking_tag, batch_tail_rel_shaking_tag
-    
 class TPLinkerBert(nn.Module):
     def __init__(self, encoder, 
                  rel_size, 
@@ -415,7 +364,7 @@ class TPLinkerBert(nn.Module):
         # handshaking kernel
         self.handshaking_kernel = HandshakingKernel(hidden_size, shaking_type, inner_enc_type)
         
-                # distance embedding
+        # distance embedding
         self.dist_emb_size = dist_emb_size
         self.dist_embbedings = None # it will be set in the first forwarding
         
@@ -452,21 +401,25 @@ class TPLinkerBert(nn.Module):
                 self.dist_embbedings = torch.cat(dist_embbeding_segs, dim = 0)
             
             if self.ent_add_dist:
-                shaking_hiddens4ent = shaking_hiddens + self.dist_embbedings[None,:,:].repeat(shaking_hiddens.size()[0], 1, 1)
+                shaking_hiddens4ent = shaking_hiddens + \
+                                      self.dist_embbedings[None, :, :].repeat(shaking_hiddens.size()[0], 1, 1)
             if self.rel_add_dist:
-                shaking_hiddens4rel = shaking_hiddens + self.dist_embbedings[None,:,:].repeat(shaking_hiddens.size()[0], 1, 1)
+                shaking_hiddens4rel = shaking_hiddens + \
+                                      self.dist_embbedings[None, :, :].repeat(shaking_hiddens.size()[0], 1, 1)
                 
-#         if self.dist_emb_size != -1 and self.ent_add_dist:
-#             shaking_hiddens4ent = shaking_hiddens + self.dist_embbedings[None,:,:].repeat(shaking_hiddens.size()[0], 1, 1)
-#         else:
-#             shaking_hiddens4ent = shaking_hiddens
-#         if self.dist_emb_size != -1 and self.rel_add_dist:
-#             shaking_hiddens4rel = shaking_hiddens + self.dist_embbedings[None,:,:].repeat(shaking_hiddens.size()[0], 1, 1)
-#         else:
-#             shaking_hiddens4rel = shaking_hiddens
-            
+        # if self.dist_emb_size != -1 and self.ent_add_dist:
+        #     shaking_hiddens4ent = shaking_hiddens +
+        #     self.dist_embbedings[None,:,:].repeat(shaking_hiddens.size()[0], 1, 1)
+        # else:
+        #     shaking_hiddens4ent = shaking_hiddens
+        # if self.dist_emb_size != -1 and self.rel_add_dist:
+        #     shaking_hiddens4rel = shaking_hiddens +
+        #     self.dist_embbedings[None,:,:].repeat(shaking_hiddens.size()[0], 1, 1)
+        # else:
+        #     shaking_hiddens4rel = shaking_hiddens
+        # shape (batch_size, handshking_length, 2)
         ent_shaking_outputs = self.ent_fc(shaking_hiddens4ent)
-            
+        # 这里是对每一种关系进行sh-oh进行预测，batch_size, handshaking_length, 3
         head_rel_shaking_outputs_list = []
         for fc in self.head_rel_fc_list:
             head_rel_shaking_outputs_list.append(fc(shaking_hiddens4rel))
@@ -474,118 +427,13 @@ class TPLinkerBert(nn.Module):
         tail_rel_shaking_outputs_list = []
         for fc in self.tail_rel_fc_list:
             tail_rel_shaking_outputs_list.append(fc(shaking_hiddens4rel))
-        
-        head_rel_shaking_outputs = torch.stack(head_rel_shaking_outputs_list, dim = 1)
-        tail_rel_shaking_outputs = torch.stack(tail_rel_shaking_outputs_list, dim = 1)
+        # batch_size, rel_num, handshaking_length, 3
+        head_rel_shaking_outputs = torch.stack(head_rel_shaking_outputs_list, dim=1)
+        tail_rel_shaking_outputs = torch.stack(tail_rel_shaking_outputs_list, dim=1)
         
         return ent_shaking_outputs, head_rel_shaking_outputs, tail_rel_shaking_outputs
 
-class TPLinkerBiLSTM(nn.Module):
-    def __init__(self, init_word_embedding_matrix, 
-                 emb_dropout_rate, 
-                 enc_hidden_size, 
-                 dec_hidden_size, 
-                 rnn_dropout_rate,
-                 rel_size, 
-                 shaking_type,
-                 inner_enc_type,
-                 dist_emb_size, 
-                 ent_add_dist, 
-                 rel_add_dist):
-        super().__init__()
-        self.word_embeds = nn.Embedding.from_pretrained(init_word_embedding_matrix, freeze = False)
-        self.emb_dropout = nn.Dropout(emb_dropout_rate)
-        self.enc_lstm = nn.LSTM(init_word_embedding_matrix.size()[-1], 
-                        enc_hidden_size // 2, 
-                        num_layers = 1, 
-                        bidirectional = True, 
-                        batch_first = True)
-        self.dec_lstm = nn.LSTM(enc_hidden_size, 
-                        dec_hidden_size // 2, 
-                        num_layers = 1, 
-                        bidirectional = True, 
-                        batch_first = True)
-        self.rnn_dropout = nn.Dropout(rnn_dropout_rate)
-        
-        hidden_size = dec_hidden_size
-           
-        self.ent_fc = nn.Linear(hidden_size, 2)
-        self.head_rel_fc_list = [nn.Linear(hidden_size, 3) for _ in range(rel_size)]
-        self.tail_rel_fc_list = [nn.Linear(hidden_size, 3) for _ in range(rel_size)]
-        
-        for ind, fc in enumerate(self.head_rel_fc_list):
-            self.register_parameter("weight_4_head_rel{}".format(ind), fc.weight)
-            self.register_parameter("bias_4_head_rel{}".format(ind), fc.bias)
-        for ind, fc in enumerate(self.tail_rel_fc_list):
-            self.register_parameter("weight_4_tail_rel{}".format(ind), fc.weight)
-            self.register_parameter("bias_4_tail_rel{}".format(ind), fc.bias)
-            
-        # handshaking kernel
-        self.handshaking_kernel = HandshakingKernel(hidden_size, shaking_type, inner_enc_type)
-        
-        # distance embedding
-        self.dist_emb_size = dist_emb_size
-        self.dist_embbedings = None # it will be set in the first forwarding
-        
-        self.ent_add_dist = ent_add_dist
-        self.rel_add_dist = rel_add_dist
-        
-    def forward(self, input_ids):
-        # input_ids: (batch_size, seq_len)
-        # embedding: (batch_size, seq_len, emb_dim)
-        embedding = self.word_embeds(input_ids)
-        embedding = self.emb_dropout(embedding)
-        # lstm_outputs: (batch_size, seq_len, enc_hidden_size)
-        lstm_outputs, _ = self.enc_lstm(embedding)
-        lstm_outputs = self.rnn_dropout(lstm_outputs)
-        # lstm_outputs: (batch_size, seq_len, dec_hidden_size)
-        lstm_outputs, _ = self.dec_lstm(lstm_outputs)
-        lstm_outputs = self.rnn_dropout(lstm_outputs)
-        
-        # shaking_hiddens: (batch_size, 1 + ... + seq_len, hidden_size)
-        shaking_hiddens = self.handshaking_kernel(lstm_outputs)
-        shaking_hiddens4ent = shaking_hiddens
-        shaking_hiddens4rel = shaking_hiddens
-        
-        # add distance embeddings if it is set
-        if self.dist_emb_size != -1:
-            # set self.dist_embbedings
-            hidden_size = shaking_hiddens.size()[-1]
-            if self.dist_embbedings is None:
-                dist_emb = torch.zeros([self.dist_emb_size, hidden_size]).to(shaking_hiddens.device)
-                for d in range(self.dist_emb_size):
-                    for i in range(hidden_size):
-                        if i % 2 == 0:
-                            dist_emb[d][i] = math.sin(d / 10000**(i / hidden_size))
-                        else:
-                            dist_emb[d][i] = math.cos(d / 10000**((i - 1) / hidden_size))
-                seq_len = input_ids.size()[1]
-                dist_embbeding_segs = []
-                for after_num in range(seq_len, 0, -1):
-                    dist_embbeding_segs.append(dist_emb[:after_num, :])
-                self.dist_embbedings = torch.cat(dist_embbeding_segs, dim = 0)
-            
-            if self.ent_add_dist:
-                shaking_hiddens4ent = shaking_hiddens + self.dist_embbedings[None,:,:].repeat(shaking_hiddens.size()[0], 1, 1)
-            if self.rel_add_dist:
-                shaking_hiddens4rel = shaking_hiddens + self.dist_embbedings[None,:,:].repeat(shaking_hiddens.size()[0], 1, 1)
-                
-            
-        ent_shaking_outputs = self.ent_fc(shaking_hiddens4ent)
-        
-        head_rel_shaking_outputs_list = []
-        for fc in self.head_rel_fc_list:
-            head_rel_shaking_outputs_list.append(fc(shaking_hiddens4rel))
-            
-        tail_rel_shaking_outputs_list = []
-        for fc in self.tail_rel_fc_list:
-            tail_rel_shaking_outputs_list.append(fc(shaking_hiddens4rel))
-        
-        head_rel_shaking_outputs = torch.stack(head_rel_shaking_outputs_list, dim = 1)
-        tail_rel_shaking_outputs = torch.stack(tail_rel_shaking_outputs_list, dim = 1)
-        
-        return ent_shaking_outputs, head_rel_shaking_outputs, tail_rel_shaking_outputs
-    
+
 class MetricsCalculator():
     def __init__(self, handshaking_tagger):
         self.handshaking_tagger = handshaking_tagger
@@ -614,9 +462,9 @@ class MetricsCalculator():
                  batch_pred_head_rel_shaking_outputs,
                  batch_pred_tail_rel_shaking_outputs, 
                  pattern = "only_head_text"):
-        batch_pred_ent_shaking_tag = torch.argmax(batch_pred_ent_shaking_outputs, dim = -1)
-        batch_pred_head_rel_shaking_tag = torch.argmax(batch_pred_head_rel_shaking_outputs, dim = -1)
-        batch_pred_tail_rel_shaking_tag = torch.argmax(batch_pred_tail_rel_shaking_outputs, dim = -1)
+        batch_pred_ent_shaking_tag = torch.argmax(batch_pred_ent_shaking_outputs, dim=-1)
+        batch_pred_head_rel_shaking_tag = torch.argmax(batch_pred_head_rel_shaking_outputs, dim=-1)
+        batch_pred_tail_rel_shaking_tag = torch.argmax(batch_pred_tail_rel_shaking_outputs, dim=-1)
 
         correct_num, pred_num, gold_num = 0, 0, 0
         for ind in range(len(sample_list)):
@@ -628,25 +476,41 @@ class MetricsCalculator():
             pred_tail_rel_shaking_tag = batch_pred_tail_rel_shaking_tag[ind]
 
             pred_rel_list = self.handshaking_tagger.decode_rel_fr_shaking_tag(text, 
-                                                      pred_ent_shaking_tag, 
-                                                      pred_head_rel_shaking_tag, 
-                                                      pred_tail_rel_shaking_tag, 
-                                                      tok2char_span)
+                                                                              pred_ent_shaking_tag,
+                                                                              pred_head_rel_shaking_tag,
+                                                                              pred_tail_rel_shaking_tag,
+                                                                              tok2char_span)
             gold_rel_list = sample["relation_list"]
 
             if pattern == "only_head_index":
-                gold_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subj_tok_span"][0], rel["predicate"], rel["obj_tok_span"][0]) for rel in gold_rel_list])
-                pred_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subj_tok_span"][0], rel["predicate"], rel["obj_tok_span"][0]) for rel in pred_rel_list])
+                gold_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subj_tok_span"][0],
+                                                                rel["predicate"],
+                                                                rel["obj_tok_span"][0]) for rel in gold_rel_list])
+                pred_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subj_tok_span"][0],
+                                                                rel["predicate"],
+                                                                rel["obj_tok_span"][0]) for rel in pred_rel_list])
             elif pattern == "whole_span":
-                gold_rel_set = set(["{}\u2E80{}\u2E80{}\u2E80{}\u2E80{}".format(rel["subj_tok_span"][0], rel["subj_tok_span"][1], rel["predicate"], rel["obj_tok_span"][0], rel["obj_tok_span"][1]) for rel in gold_rel_list])
-                pred_rel_set = set(["{}\u2E80{}\u2E80{}\u2E80{}\u2E80{}".format(rel["subj_tok_span"][0], rel["subj_tok_span"][1], rel["predicate"], rel["obj_tok_span"][0], rel["obj_tok_span"][1]) for rel in pred_rel_list])
+                gold_rel_set = set(["{}\u2E80{}\u2E80{}\u2E80{}\u2E80{}".format(rel["subj_tok_span"][0],
+                                                                                rel["subj_tok_span"][1],
+                                                                                rel["predicate"],
+                                                                                rel["obj_tok_span"][0],
+                                                                                rel["obj_tok_span"][1]) for rel in gold_rel_list])
+                pred_rel_set = set(["{}\u2E80{}\u2E80{}\u2E80{}\u2E80{}".format(rel["subj_tok_span"][0],
+                                                                                rel["subj_tok_span"][1],
+                                                                                rel["predicate"],
+                                                                                rel["obj_tok_span"][0],
+                                                                                rel["obj_tok_span"][1]) for rel in pred_rel_list])
             elif pattern == "whole_text":
-                gold_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subject"], rel["predicate"], rel["object"]) for rel in gold_rel_list])
-                pred_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subject"], rel["predicate"], rel["object"]) for rel in pred_rel_list])
+                gold_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subject"], rel["predicate"],
+                                                                rel["object"]) for rel in gold_rel_list])
+                pred_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subject"], rel["predicate"],
+                                                                rel["object"]) for rel in pred_rel_list])
             elif pattern == "only_head_text":
-                gold_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subject"].split(" ")[0], rel["predicate"], rel["object"].split(" ")[0]) for rel in gold_rel_list])
-                pred_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subject"].split(" ")[0], rel["predicate"], rel["object"].split(" ")[0]) for rel in pred_rel_list])
-
+                gold_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subject"].split(" ")[0],
+                                                                rel["predicate"],
+                                                                rel["object"].split(" ")[0]) for rel in gold_rel_list])
+                pred_rel_set = set(["{}\u2E80{}\u2E80{}".format(rel["subject"].split(" ")[0],
+                                                                rel["predicate"], rel["object"].split(" ")[0]) for rel in pred_rel_list])
 
             for rel_str in pred_rel_set:
                 if rel_str in gold_rel_set:

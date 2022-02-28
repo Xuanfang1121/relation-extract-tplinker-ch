@@ -1,11 +1,11 @@
 import string
 import random
 
+
 common = {
-    "exp_name": "baidu_relation", #"nyt_star",
+    "exp_name": "baidu_relation_test_demo", #"nyt_star",
     "rel2id": "rel2id.json",
-    "device_num": 0,
-#     "encoder": "BiLSTM",
+    "device_num": "-1",
     "encoder": "BERT", 
     "hyper_parameters": {
         "shaking_type": "cat", # cat, cat_plus, cln, cln_plus; Experiments show that cat/cat_plus work better with BiLSTM, while cln/cln_plus work better with BERT. The results in the paper are produced by "cat". So, if you want to reproduce the results, "cat" is enough, no matter for BERT or BiLSTM.
@@ -16,7 +16,8 @@ common = {
         "match_pattern": "only_head_text", # only_head_text (nyt_star, webnlg_star), whole_text (nyt, webnlg), only_head_index, whole_span
     },
 }
-common["run_name"] = "{}+{}+{}".format("TP1", common["hyper_parameters"]["shaking_type"], common["encoder"]) + ""
+common["run_name"] = "{}+{}+{}".format("TP1", common["hyper_parameters"]["shaking_type"],
+                                       common["encoder"]) + ""
 
 run_id = ''.join(random.sample(string.ascii_letters + string.digits, 8))
 train_config = {
@@ -28,8 +29,8 @@ train_config = {
     # if logger is set as default, uncomment the following four lines
     "logger": "default",
     "run_id": run_id,
-    "log_path": "./default_log_dir/default.log",
-    "path_to_save_model": "./default_log_dir/{}".format(run_id),
+    "log_path": "D:/Spyder/xiaoi/tplinker-ch/default_log_dir/default.log",
+    "path_to_save_model": "D:/Spyder/xiaoi/tplinker-ch/default_log_dir/{}".format(run_id),
 
     # only save the model state dict if F1 score surpasses <f1_2_save>
     "f1_2_save": 0, 
@@ -40,8 +41,8 @@ train_config = {
     # if not fr scratch, set a model_state_dict
     "model_state_dict_path": "",
     "hyper_parameters": {
-        "batch_size": 8,
-        "epochs": 10,
+        "batch_size": 2,
+        "epochs": 5,
         "seed": 2333,
         "log_interval": 10,
         "max_seq_len": 128,
@@ -53,7 +54,7 @@ train_config = {
 
 eval_config = {
     # "model_state_dict_dir": "./wandb", # if use wandb, set "./wandb", or set "./default_log_dir" if you use default logger
-    "model_state_dict_dir": "./default_log_dir",
+    "model_state_dict_dir": "D:/Spyder/xiaoi/tplinker-ch/default_log_dir",
     "run_ids": ["10suiyrf", ],
     "last_k_model": 1,
     "test_data": "*test*.json", # "*test*.json"
@@ -66,41 +67,23 @@ eval_config = {
     "score": True,
     
     "hyper_parameters": {
-        "batch_size": 6,
+        "batch_size": 1,
         "force_split": False,
-        "max_test_seq_len": 100,
+        "max_test_seq_len": 128,
         "sliding_len": 50,
     },
 }
 
-# bert_config = {
-#     "data_home": "../data4bert",
-#     "bert_path": "../../pretrained_models/bert-base-cased",
-#     "hyper_parameters": {
-#         "lr": 5e-5,
-#     },
-# }
 bert_config = {
-    "data_home": "./data4bert",
-    "bert_path": "/work/zhangxf/torch_pretraining_model/bert_base_chinese",   # "./pretrained_models/bert_base_cased",
+    "data_home": "D:/Spyder/xiaoi/tplinker-ch/data4bert/baidu_relation_test_demo/",
+    # "bert_path": "D:/pretrain_model/torch/bert-base-chinese",
+    "bert_path": "D:/Spyder/pretrain_model/transformers_torch_tf/bert-base-chinese/",
+    # "bert_path": "/work/zhangxf/torch_pretraining_model/bert_base_chinese",   # "./pretrained_models/bert_base_cased",
     "hyper_parameters": {
         "lr": 5e-5,
     },
 }
 
-bilstm_config = {
-    "data_home": "../data4bilstm",
-    "token2idx": "token2idx.json",
-    "pretrained_word_embedding_path": "../../pretrained_emb/glove_300_nyt.emb",
-    "hyper_parameters": {
-         "lr": 1e-3,
-         "enc_hidden_size": 300,
-         "dec_hidden_size": 600,
-         "emb_dropout": 0.1,
-         "rnn_dropout": 0.1,
-         "word_embedding_dim": 300,
-    },
-}
 
 cawr_scheduler = {
     # CosineAnnealingWarmRestarts
@@ -117,10 +100,6 @@ step_scheduler = {
 if common["encoder"] == "BERT":
     hyper_params = {**common["hyper_parameters"], **bert_config["hyper_parameters"]}
     common = {**common, **bert_config}
-    common["hyper_parameters"] = hyper_params
-elif common["encoder"] == "BiLSTM":
-    hyper_params = {**common["hyper_parameters"], **bilstm_config["hyper_parameters"]}
-    common = {**common, **bilstm_config}
     common["hyper_parameters"] = hyper_params
     
 hyper_params = {**common["hyper_parameters"], **train_config["hyper_parameters"]}

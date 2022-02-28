@@ -1,4 +1,3 @@
-from IPython.core.debugger import set_trace
 import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
@@ -52,7 +51,6 @@ class LayerNorm(nn.Module):
                 torch.nn.init.constant_(self.beta_dense.weight, 0)
             if self.scale:
                 torch.nn.init.constant_(self.gamma_dense.weight, 0)
-
 
     def forward(self, inputs, cond=None):
         """

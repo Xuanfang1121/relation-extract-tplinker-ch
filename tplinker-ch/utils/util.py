@@ -2,17 +2,17 @@
 # @Time    : 2021/5/10 15:33
 # @Author  : zxf
 import json
+import time
 
 import torch
 import numpy as np
 from tqdm import tqdm
+import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModel, BertTokenizerFast
 
-from tplinker import TPLinkerBert
-from tplinker import TPLinkerBiLSTM
-from tplinker import DataMaker4Bert
-from tplinker import DataMaker4BiLSTM
+from models.tplinker import TPLinkerBert
+from models.tplinker import DataMaker4Bert
 
 
 def get_tokenizer_bert(bert_path):
@@ -39,25 +39,6 @@ def get_tokenizer_lstm():
         return tok2char_span
 
     return tokenize, get_tok2char_span_map
-
-
-def get_tokenizer(bert_path):
-    tokenizer = BertTokenizerFast.from_pretrained(bert_path,
-                                                  add_special_tokens=False,
-                                                  do_lower_case=False)
-    tokenize = tokenizer.tokenize
-    get_tok2char_span_map = lambda text: tokenizer.encode_plus(text,
-                                                               return_offsets_mapping=True,
-                                                               add_special_tokens=False)["offset_mapping"]
-    return tokenize, get_tok2char_span_map
-
-
-def get_data_bert_data_maker(bert_path, handshaking_tagger):
-    tokenizer = BertTokenizerFast.from_pretrained(bert_path,
-                                                  add_special_tokens=False,
-                                                  do_lower_case=False)
-    data_maker = DataMaker4Bert(tokenizer, handshaking_tagger)
-    return data_maker
 
 
 def get_data_bilstm_data_maker(token2idx_path, handshaking_tagger):
@@ -91,8 +72,9 @@ def get_data_bilstm_data_maker(token2idx_path, handshaking_tagger):
     return data_maker, token2idx
 
 
-def get_token_num(all_data, tokenize):
+def get_token_max_num(train_data, valid_data, tokenize):
     max_tok_num = 0
+    all_data = train_data + valid_data
     for sample in tqdm(all_data, desc="Calculate the max token number"):
         tokens = tokenize(sample["text"])
         max_tok_num = max(len(tokens), max_tok_num)
@@ -220,7 +202,7 @@ def get_test_prf(pred_sample_list, gold_test_data, metrics, pattern="only_head_t
     return prf
 
 
-def predict(config, test_data, data_maker, max_seq_len,
+def predict(test_data, data_maker, max_seq_len,
             batch_size, device,
             rel_extractor, split_test_data, handshaking_tagger):
     '''
@@ -242,29 +224,19 @@ def predict(config, test_data, data_maker, max_seq_len,
     pred_sample_list = []
     for batch_test_data in tqdm(test_dataloader,
                                 desc="Predicting"):
-        if config["encoder"] == "BERT":
-            sample_list, batch_input_ids, batch_attention_mask, \
-            batch_token_type_ids, tok2char_span_list, _, _, _ = batch_test_data
+        sample_list, batch_input_ids, batch_attention_mask, \
+        batch_token_type_ids, tok2char_span_list, _, _, _ = batch_test_data
 
-            batch_input_ids, batch_attention_mask, \
-            batch_token_type_ids = (batch_input_ids.to(device),
-                                    batch_attention_mask.to(device),
-                                    batch_token_type_ids.to(device))
-        elif config["encoder"] in {"BiLSTM", }:
-            sample_list, batch_input_ids, \
-            tok2char_span_list, _, _, _ = batch_test_data
-            batch_input_ids = batch_input_ids.to(device)
-
+        batch_input_ids, batch_attention_mask, \
+        batch_token_type_ids = (batch_input_ids.to(device),
+                                batch_attention_mask.to(device),
+                                batch_token_type_ids.to(device))
         with torch.no_grad():
-            if config["encoder"] == "BERT":
-                batch_ent_shaking_outputs, batch_head_rel_shaking_outputs, \
-                batch_tail_rel_shaking_outputs = rel_extractor(batch_input_ids,
-                                                               batch_attention_mask,
-                                                               batch_token_type_ids,
-                                                               )
-            elif config["encoder"] in {"BiLSTM", }:
-                batch_ent_shaking_outputs, batch_head_rel_shaking_outputs, \
-                batch_tail_rel_shaking_outputs = rel_extractor(batch_input_ids)
+            batch_ent_shaking_outputs, batch_head_rel_shaking_outputs, \
+            batch_tail_rel_shaking_outputs = rel_extractor(batch_input_ids,
+                                                           batch_attention_mask,
+                                                           batch_token_type_ids,
+                                                           )
 
         batch_ent_shaking_tag, batch_head_rel_shaking_tag, \
         batch_tail_rel_shaking_tag = torch.argmax(batch_ent_shaking_outputs,
@@ -302,3 +274,145 @@ def predict(config, test_data, data_maker, max_seq_len,
             })
 
     return pred_sample_list
+
+
+def get_model_training_scheduler(optimizer, batch_num, hyper_parameters):
+    if hyper_parameters["scheduler"] == "CAWR":
+        T_mult = hyper_parameters["T_mult"]
+        rewarm_epoch_num = hyper_parameters["rewarm_epoch_num"]
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
+                                                                         batch_num * rewarm_epoch_num,
+                                                                         T_mult)
+    elif hyper_parameters["scheduler"] == "Step":
+        decay_rate = hyper_parameters["decay_rate"]
+        decay_steps = hyper_parameters["decay_steps"]
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=decay_steps,
+                                                    gamma=decay_rate)
+    return scheduler
+
+
+def bias_loss(device, weights=None):
+    if weights is not None:
+        weights = torch.FloatTensor(weights).to(device)
+    cross_en = nn.CrossEntropyLoss(weight=weights)
+    return lambda pred, target: cross_en(pred.view(-1, pred.size()[-1]), target.view(-1))
+
+
+def train_step(rel_extractor, batch_train_data, optimizer, loss_weights, loss_func,
+               metrics, device):
+    sample_list, batch_input_ids, batch_attention_mask, batch_token_type_ids, \
+    tok2char_span_list, batch_ent_shaking_tag, batch_head_rel_shaking_tag, \
+    batch_tail_rel_shaking_tag = batch_train_data
+
+    batch_input_ids, batch_attention_mask, batch_token_type_ids, \
+    batch_ent_shaking_tag, batch_head_rel_shaking_tag, \
+    batch_tail_rel_shaking_tag = (batch_input_ids.to(device),
+                                  batch_attention_mask.to(device),
+                                  batch_token_type_ids.to(device),
+                                  batch_ent_shaking_tag.to(device),
+                                  batch_head_rel_shaking_tag.to(device),
+                                  batch_tail_rel_shaking_tag.to(device)
+                                  )
+    # zero the parameter gradients
+    optimizer.zero_grad()
+    ent_shaking_outputs, head_rel_shaking_outputs, \
+    tail_rel_shaking_outputs = rel_extractor(batch_input_ids,
+                                             batch_attention_mask,
+                                             batch_token_type_ids,
+                                             )
+    w_ent, w_rel = loss_weights["ent"], loss_weights["rel"]
+    loss = w_ent * loss_func(ent_shaking_outputs, batch_ent_shaking_tag) + \
+           w_rel * loss_func(head_rel_shaking_outputs, batch_head_rel_shaking_tag) + \
+           w_rel * loss_func(tail_rel_shaking_outputs, batch_tail_rel_shaking_tag)
+
+    loss.backward()
+    optimizer.step()
+
+    ent_sample_acc = metrics.get_sample_accuracy(ent_shaking_outputs,
+                                                 batch_ent_shaking_tag)
+    head_rel_sample_acc = metrics.get_sample_accuracy(head_rel_shaking_outputs,
+                                                      batch_head_rel_shaking_tag)
+    tail_rel_sample_acc = metrics.get_sample_accuracy(tail_rel_shaking_outputs,
+                                                      batch_tail_rel_shaking_tag)
+
+    return loss.item(), ent_sample_acc.item(), head_rel_sample_acc.item(), \
+           tail_rel_sample_acc.item()
+
+
+def evaluate_step(batch_valid_data, rel_extractor, metrics, device, match_pattern):
+    sample_list, batch_input_ids, batch_attention_mask, batch_token_type_ids, \
+    tok2char_span_list, batch_ent_shaking_tag, batch_head_rel_shaking_tag, \
+    batch_tail_rel_shaking_tag = batch_valid_data
+
+    batch_input_ids, batch_attention_mask, batch_token_type_ids, batch_ent_shaking_tag, \
+    batch_head_rel_shaking_tag, \
+    batch_tail_rel_shaking_tag = (batch_input_ids.to(device),
+                                  batch_attention_mask.to(device),
+                                  batch_token_type_ids.to(device),
+                                  batch_ent_shaking_tag.to(device),
+                                  batch_head_rel_shaking_tag.to(device),
+                                  batch_tail_rel_shaking_tag.to(device)
+                                  )
+
+    with torch.no_grad():
+        ent_shaking_outputs, head_rel_shaking_outputs, \
+        tail_rel_shaking_outputs = rel_extractor(batch_input_ids,
+                                                 batch_attention_mask,
+                                                 batch_token_type_ids,
+                                                 )
+
+    ent_sample_acc = metrics.get_sample_accuracy(ent_shaking_outputs,
+                                                 batch_ent_shaking_tag)
+    head_rel_sample_acc = metrics.get_sample_accuracy(head_rel_shaking_outputs,
+                                                      batch_head_rel_shaking_tag)
+    tail_rel_sample_acc = metrics.get_sample_accuracy(tail_rel_shaking_outputs,
+                                                      batch_tail_rel_shaking_tag)
+
+    rel_cpg = metrics.get_rel_cpg(sample_list, tok2char_span_list,
+                                  ent_shaking_outputs,
+                                  head_rel_shaking_outputs,
+                                  tail_rel_shaking_outputs,
+                                  match_pattern
+                                  )
+
+    return ent_sample_acc.item(), head_rel_sample_acc.item(), tail_rel_sample_acc.item(), \
+           rel_cpg
+
+
+# evaluate
+def model_evaluate(dataloader, rel_extractor, metrics, logger, device, match_pattern):
+        # valid
+        rel_extractor.eval()
+        t_ep = time.time()
+        total_ent_sample_acc, total_head_rel_sample_acc, total_tail_rel_sample_acc = 0., 0., 0.
+        total_rel_correct_num, total_rel_pred_num, total_rel_gold_num = 0, 0, 0
+        for batch_ind, batch_valid_data in enumerate(tqdm(dataloader, desc="Validating")):
+            ent_sample_acc, head_rel_sample_acc, \
+            tail_rel_sample_acc, rel_cpg = evaluate_step(batch_valid_data, rel_extractor,
+                                                         metrics, device, match_pattern)
+
+            total_ent_sample_acc += ent_sample_acc
+            total_head_rel_sample_acc += head_rel_sample_acc
+            total_tail_rel_sample_acc += tail_rel_sample_acc
+
+            total_rel_correct_num += rel_cpg[0]
+            total_rel_pred_num += rel_cpg[1]
+            total_rel_gold_num += rel_cpg[2]
+        avg_ent_sample_acc = total_ent_sample_acc / len(dataloader)
+        avg_head_rel_sample_acc = total_head_rel_sample_acc / len(dataloader)
+        avg_tail_rel_sample_acc = total_tail_rel_sample_acc / len(dataloader)
+        rel_prf = metrics.get_prf_scores(total_rel_correct_num, total_rel_pred_num,
+                                         total_rel_gold_num)
+
+        log_dict = {
+            "val_ent_seq_acc": avg_ent_sample_acc,
+            "val_head_rel_acc": avg_head_rel_sample_acc,
+            "val_tail_rel_acc": avg_tail_rel_sample_acc,
+            "val_prec": rel_prf[0],
+            "val_recall": rel_prf[1],
+            "val_f1": rel_prf[2],
+            "time": time.time() - t_ep,
+        }
+        logger.info(log_dict)
+
+        return rel_prf[2]

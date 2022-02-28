@@ -15,13 +15,13 @@ class DefaultLogger:
         self.run_id = run_id
         self.log("==============================")
         self.log("project: {}, run_name: {}, run_id: {}\n".format(project, run_name, run_id))
-        hyperparameters_format = "-------hypter_parameters------------------- \n{}\n-----------------------------------------"
-        self.log(hyperparameters_format.format(json.dumps(hyperparameter, indent = 4)))
+        hyperparameters_format = "-------hypter_parameters------------------- \n{}\n------------------------------"
+        self.log(hyperparameters_format.format(json.dumps(hyperparameter, indent=4)))
 
     def log(self, text):
         text = "run_id: {}, {}".format(self.run_id, text)
         print(text)
-        open(self.log_path, "a", encoding = "utf-8").write("{}\n".format(text))
+        open(self.log_path, "a", encoding="utf-8").write("{}\n".format(text))
 
 
 class Preprocessor:
@@ -74,8 +74,10 @@ class Preprocessor:
             
         return self._clean_sp_char(normal_sample_list)
     
-    def split_into_short_samples(self, sample_list, max_seq_len,
-                                 sliding_len=50, encoder="BERT", data_type="train"):
+    def split_into_short_samples(self, sample_list,
+                                 max_seq_len,
+                                 sliding_len=50,
+                                 encoder="BERT", data_type="train"):
         new_sample_list = []
         for sample in tqdm(sample_list, desc="Splitting into subtexts"):
             text_id = sample["id"]

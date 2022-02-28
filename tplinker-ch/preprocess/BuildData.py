@@ -51,7 +51,9 @@ for path, folds, files in os.walk(data_in_dir):
         file_path = os.path.join(path, file_name)
         file_name = re.match("(.*?)\.json", file_name).group(1)
         print(file_path)
-        file_name2data[file_name] = json.load(open(file_path, "r", encoding="utf-8"))
+        file_name2data[file_name] = json.load(open(file_path,
+                                                   "r",
+                                                   encoding="utf-8"))
 
 # # Preprocess
 
@@ -292,5 +294,6 @@ if config["encoder"] in {"BiLSTM", }:
     dict_path = os.path.join(data_out_dir, "token2idx.json")
     json.dump(token2idx, open(dict_path, "w", encoding="utf-8"),
               ensure_ascii=False, indent=4)
-    logging.info("token2idx is output to {}, total token num: {}".format(dict_path, len(token2idx))) 
+    logging.info("token2idx is output to {}, "
+                 "total token num: {}".format(dict_path, len(token2idx)))
 

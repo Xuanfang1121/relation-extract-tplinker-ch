@@ -1,10 +1,10 @@
-exp_name: baidu_relation # nyt_star, nyt, webnlg_star, webnlg, ace05_lu
+exp_name: baidu_relation_demo # nyt_star, nyt, webnlg_star, webnlg, ace05_lu
 data_in_dir: ../ori_data
 ori_data_format: tplinker # casrel (webnlg_star, nyt_star), etl_span (webnlg), raw_nyt (nyt), tplinker (see readme)
 
 # if build data for BERT, use these 3 lines and comment the following 2 lines.
 encoder: BERT
-bert_path: D:/Spyder/pretrain_model/transformers_torch_tf/bert_base_chinese #  chinese-bert-wwm-ext-hit, bert-base-cased
+bert_path: D:/pretrain_model/torch/bert-base-chinese #  chinese-bert-wwm-ext-hit, bert-base-cased
 data_out_dir: ../data4bert
 
 # # if build data for BiLSTM, use these 2 lines and comment above 3 lines.
