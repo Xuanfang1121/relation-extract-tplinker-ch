@@ -33,58 +33,84 @@ PyYAML==6.0
 备注：目前不支持多卡训练，
 
 ### 数据
-本次代码训练是基于百度关系抽取数据集训练的，执行preprocess/BuildData.py生成模型需要的数据格式，
-数据格式如下：
+本次代码训练是基于百度关系抽取数据集训练的，执行preprocess/BuildData.py生成模型需要的数据格式.
+1. 修改preprocess/build_data_config.yaml中的参数，其中ori_data_format为tplinker
+2. 执行preprocess/BuildData.py
+输入的数据格式为
 ```
 {
-    "id": 371,
-    "text": "组织结构 武汉大学文学院青年理论研究中心成立于2004年，直属于院团委，于2006年下半年正式组织成立",
+    "id": 0,
+    "text": "《邪少兵王》是冰火未央写的网络小说连载于旗峰天下",
     "relation_list": [
       {
-        "subject": "青年理论研究中心",
-        "object": "2004年",
+        "object": "冰火未央",
+        "subject": "邪少兵王",
+        "predicate": "作者"
+      }
+    ],
+    "entity_list": [
+      {
+        "text": "冰火未央",
+        "type": "人物"
+      },
+      {
+        "text": "邪少兵王",
+        "type": "图书作品"
+      }
+    ]
+  }
+```
+生成的数据格式如下：
+```
+{
+    "id": 0,
+    "text": "《邪少兵王》是冰火未央写的网络小说连载于旗峰天下",
+    "relation_list": [
+      {
+        "subject": "邪少兵王",
+        "object": "冰火未央",
         "subj_char_span": [
-          12,
-          20
+          1,
+          5
         ],
         "obj_char_span": [
-          23,
-          28
+          7,
+          11
         ],
-        "predicate": "成立日期",
+        "predicate": "作者",
         "subj_tok_span": [
-          11,
-          19
+          1,
+          5
         ],
         "obj_tok_span": [
-          22,
-          24
+          7,
+          11
         ]
       }
     ],
     "entity_list": [
       {
-        "text": "2004年",
-        "type": "Date",
+        "text": "冰火未央",
+        "type": "人物",
         "char_span": [
-          23,
-          28
+          7,
+          11
         ],
         "tok_span": [
-          22,
-          24
+          7,
+          11
         ]
       },
       {
-        "text": "青年理论研究中心",
-        "type": "机构",
+        "text": "邪少兵王",
+        "type": "图书作品",
         "char_span": [
-          12,
-          20
+          1,
+          5
         ],
         "tok_span": [
-          11,
-          19
+          1,
+          5
         ]
       }
     ]
